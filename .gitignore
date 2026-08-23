@@ -1,5 +1,1 @@
-# Root-level .gitignore, added alongside the Docker setup.
-# backend/.gitignore and frontend/.gitignore already cover node_modules etc.
-# within those folders; this only covers the new root-level Compose .env file.
 .env
-.env.example
