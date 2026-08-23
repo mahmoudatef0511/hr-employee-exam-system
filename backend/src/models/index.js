@@ -45,6 +45,12 @@ ExamAssignment.belongsTo(Exam, { foreignKey: 'examId', as: 'exam' });
 HR.hasMany(ExamAssignment, { foreignKey: 'assignedBy', as: 'assignmentsMade' });
 ExamAssignment.belongsTo(HR, { foreignKey: 'assignedBy', as: 'assignedByHr' });
 
+// ExamAssignment 1:1 Submission ("this assignment was attempted via this
+// submission"). One assignment can have at most one submission (enforced by
+// a unique constraint on submissions.assignment_id).
+ExamAssignment.hasOne(Submission, { foreignKey: 'assignmentId', as: 'submission' });
+Submission.belongsTo(ExamAssignment, { foreignKey: 'assignmentId', as: 'assignment' });
+
 module.exports = {
   sequelize,
   HR,

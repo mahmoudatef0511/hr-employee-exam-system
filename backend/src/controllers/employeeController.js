@@ -1,9 +1,15 @@
-const { sequelize, Exam, Question, Submission, Answer } = require("../models");
+const {
+  sequelize,
+  Exam,
+  Question,
+  Submission,
+  Answer,
+  ExamAssignment,
+} = require("../models");
 const { success } = require("../utils/apiResponse");
 const AppError = require("../utils/AppError");
 const { validateSubmission } = require("../utils/validators");
 const { calculateScore } = require("../services/scoreService");
-const { assertEmployeeIsAssigned } = require("./examController");
 
 // GET /api/employee/submissions
 // Only the logged-in employee's own submissions.
@@ -57,11 +63,24 @@ async function submitExam(req, res, next) {
       throw new AppError("Exam not found.", 404);
     }
 
-    try {
-      await assertEmployeeIsAssigned(req.user.id, exam.id);
-    } catch (accessErr) {
+    // Look up the employee's ACTIVE assignment for this exam, locking the
+    // row for the rest of the transaction. The row lock is what makes this
+    // safe against a double-submit race: if two requests for the same
+    // assignment arrive at once, the second one blocks here until the first
+    // commits (and marks the assignment completed) — at which point this
+    // query's `completed_at: null` condition no longer matches, so it
+    // correctly comes back empty instead of double-processing.
+    const assignment = await ExamAssignment.findOne({
+      where: { employeeId: req.user.id, examId: exam.id, completedAt: null },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!assignment) {
       await t.rollback();
-      throw accessErr;
+      throw new AppError(
+        "You do not have an active assignment for this exam. It may already be completed — ask HR to reassign it if you need to take it again.",
+        403,
+      );
     }
 
     const errors = validateSubmission(req.body);
@@ -109,6 +128,7 @@ async function submitExam(req, res, next) {
       {
         employeeId: req.user.id,
         examId: exam.id,
+        assignmentId: assignment.id,
         submitted_at: new Date(),
         score, // normalized, out of maximumScore (5)
         totalQuestions: total,
@@ -123,6 +143,13 @@ async function submitExam(req, res, next) {
     }));
 
     await Answer.bulkCreate(answerRows, { transaction: t });
+
+    // This is the moment the assignment is "used up": it stops being
+    // active, so it disappears from Current Assignments / available exams
+    // and can never be submitted again. Taking the exam again requires HR
+    // to create a brand new assignment.
+    assignment.completedAt = new Date();
+    await assignment.save({ transaction: t });
 
     await t.commit();
 

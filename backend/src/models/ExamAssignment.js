@@ -32,6 +32,14 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: DataTypes.NOW,
         field: 'assigned_at'
+      },
+      // NULL while the employee still needs to take this assignment.
+      // Set the moment they submit it — from then on this assignment is
+      // "used up" and can never be retaken; HR must create a new one.
+      completedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'completed_at'
       }
     },
     {

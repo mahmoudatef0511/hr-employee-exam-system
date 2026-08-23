@@ -66,10 +66,15 @@ async function listEmployees(req, res, next) {
 }
 
 // GET /api/hr/assignments
-// All current exam-to-employee assignments, for the HR dashboard table.
+// "Current Assignments": only assignments the employee has NOT completed
+// yet. As soon as an employee submits, their assignment drops out of this
+// list — it stays in the database (and in submission history) but is no
+// longer "current". Completed assignments are viewable via the existing
+// submissions endpoints instead.
 async function listAssignments(req, res, next) {
   try {
     const assignments = await ExamAssignment.findAll({
+      where: { completedAt: null },
       include: [
         { model: Employee, as: "employee", attributes: ["id", "name", "email"] },
         { model: Exam, as: "exam", attributes: ["id", "title"] },
@@ -98,9 +103,20 @@ async function assignExam(req, res, next) {
     if (!employee) throw new AppError("Employee not found.", 404);
     if (!exam) throw new AppError("Exam not found.", 404);
 
-    const existing = await ExamAssignment.findOne({ where: { employeeId, examId } });
-    if (existing) {
-      throw new AppError("This exam is already assigned to this employee.", 409);
+    // Block a second assignment only while a prior one is still active
+    // (not yet completed). Once an assignment is completed it's history —
+    // it no longer stands in the way of a fresh assignment for the same
+    // exam/employee pair. This is what makes "HR reassigns the same exam"
+    // possible while still preventing duplicate, ambiguous, simultaneously
+    // current assignments.
+    const existingActive = await ExamAssignment.findOne({
+      where: { employeeId, examId, completedAt: null },
+    });
+    if (existingActive) {
+      throw new AppError(
+        "This exam is already currently assigned to this employee.",
+        409,
+      );
     }
 
     const assignment = await ExamAssignment.create({
@@ -108,6 +124,7 @@ async function assignExam(req, res, next) {
       examId,
       assignedBy: req.user.id,
       assignedAt: new Date(),
+      completedAt: null,
     });
 
     return success(res, 201, assignment, "Exam assigned.");

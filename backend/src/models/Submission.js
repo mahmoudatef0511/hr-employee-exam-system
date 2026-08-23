@@ -20,6 +20,14 @@ module.exports = (sequelize) => {
         allowNull: false,
         field: "exam_id",
       },
+      // The specific assignment this submission is an attempt for. Nullable
+      // only to accommodate pre-existing/backfilled rows whose assignment
+      // may since have been removed; every new submission always sets it.
+      assignmentId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: "assignment_id",
+      },
       submitted_at: {
         type: DataTypes.DATE,
         allowNull: false,

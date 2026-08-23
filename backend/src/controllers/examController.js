@@ -3,16 +3,23 @@ const { success } = require('../utils/apiResponse');
 const AppError = require('../utils/AppError');
 const { validateExam, validateQuestion } = require('../utils/validators');
 
-// Employees may only ever touch exams that have been assigned to them.
-// Centralized here so every employee-facing route enforces it the same way,
-// regardless of what the request body/params say.
-async function assertEmployeeIsAssigned(employeeId, examId) {
+// Employees may only ever touch exams they have an ACTIVE (not yet
+// completed) assignment for. Once an assignment is completed it no longer
+// grants access — a fresh assignment from HR is required to take the exam
+// again. Centralized here so every employee-facing route enforces it the
+// same way, regardless of what the request body/params say.
+//
+// Returns the active assignment row (callers that need it, like
+// submitExam, can reuse it instead of querying again).
+async function assertEmployeeIsAssigned(employeeId, examId, options = {}) {
   const assignment = await ExamAssignment.findOne({
-    where: { employeeId, examId }
+    where: { employeeId, examId, completedAt: null },
+    ...options
   });
   if (!assignment) {
     throw new AppError('You do not have access to this exam.', 403);
   }
+  return assignment;
 }
 
 // GET /api/exams  (available to any authenticated user)
@@ -21,12 +28,15 @@ async function listExams(req, res, next) {
   try {
     let exams;
     if (req.user.type === 'employee') {
+      // Only exams with a currently-active (not yet completed) assignment
+      // count as "available". A completed assignment no longer surfaces the
+      // exam here — a new assignment from HR is required for that.
       exams = await Exam.findAll({
         include: [
           {
             model: ExamAssignment,
             as: 'assignments',
-            where: { employeeId: req.user.id },
+            where: { employeeId: req.user.id, completedAt: null },
             attributes: []
           }
         ],
