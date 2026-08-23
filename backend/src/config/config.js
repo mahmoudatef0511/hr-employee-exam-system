@@ -1,5 +1,7 @@
 require("dotenv").config();
 
+require("mysql2");
+
 const useSSL = process.env.DB_SSL === "true";
 
 const common = {
