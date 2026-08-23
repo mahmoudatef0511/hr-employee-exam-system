@@ -1,6 +1,7 @@
-// Sequelize instance used by the running application (models/index.js).
-const { Sequelize } = require('sequelize');
-require('dotenv').config();
+const { Sequelize } = require("sequelize");
+require("dotenv").config();
+
+const useSSL = process.env.DB_SSL === "true";
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -9,9 +10,12 @@ const sequelize = new Sequelize(
   {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
-    dialect: 'mysql',
-    logging: false
-  }
+    dialect: "mysql",
+    logging: false,
+    dialectOptions: useSSL
+      ? { ssl: { require: true, rejectUnauthorized: false } }
+      : {},
+  },
 );
 
 module.exports = sequelize;

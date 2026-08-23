@@ -1,5 +1,6 @@
-// Sequelize CLI config (used for migrations/seeders). Reads from .env.
-require('dotenv').config();
+require("dotenv").config();
+
+const useSSL = process.env.DB_SSL === "true";
 
 const common = {
   username: process.env.DB_USER,
@@ -7,11 +8,14 @@ const common = {
   database: process.env.DB_NAME,
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
-  dialect: 'mysql'
+  dialect: "mysql",
+  dialectOptions: useSSL
+    ? { ssl: { require: true, rejectUnauthorized: false } }
+    : {},
 };
 
 module.exports = {
   development: common,
   test: common,
-  production: common
+  production: common,
 };
