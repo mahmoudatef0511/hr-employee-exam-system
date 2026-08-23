@@ -29,7 +29,9 @@ export default function EmployeeDashboard() {
       <h2>Available Exams</h2>
       <Card>
         {loading && <p>Loading...</p>}
-        {!loading && exams.length === 0 && <p>No exams available yet.</p>}
+        {!loading && exams.length === 0 && (
+          <p>No exams have been assigned to you yet.</p>
+        )}
         {!loading && exams.length > 0 && (
           <table>
             <thead>

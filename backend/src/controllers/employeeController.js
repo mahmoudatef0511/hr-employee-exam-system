@@ -3,6 +3,7 @@ const { success } = require("../utils/apiResponse");
 const AppError = require("../utils/AppError");
 const { validateSubmission } = require("../utils/validators");
 const { calculateScore } = require("../services/scoreService");
+const { assertEmployeeIsAssigned } = require("./examController");
 
 // GET /api/employee/submissions
 // Only the logged-in employee's own submissions.
@@ -54,6 +55,13 @@ async function submitExam(req, res, next) {
     if (!exam) {
       await t.rollback();
       throw new AppError("Exam not found.", 404);
+    }
+
+    try {
+      await assertEmployeeIsAssigned(req.user.id, exam.id);
+    } catch (accessErr) {
+      await t.rollback();
+      throw accessErr;
     }
 
     const errors = validateSubmission(req.body);

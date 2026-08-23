@@ -6,6 +6,7 @@ const Exam = require('./Exam')(sequelize);
 const Question = require('./Question')(sequelize);
 const Submission = require('./Submission')(sequelize);
 const Answer = require('./Answer')(sequelize);
+const ExamAssignment = require('./ExamAssignment')(sequelize);
 
 // ---- Associations ----
 
@@ -29,6 +30,21 @@ Answer.belongsTo(Submission, { foreignKey: 'submissionId', as: 'submission' });
 Question.hasMany(Answer, { foreignKey: 'questionId', as: 'answers', onDelete: 'CASCADE' });
 Answer.belongsTo(Question, { foreignKey: 'questionId', as: 'question' });
 
+// Employee N:M Exam, through ExamAssignment ("HR assigns Exam to Employee").
+// The through model is also exposed directly so controllers can query/create
+// individual assignment rows (e.g. list assignments, check access, unassign).
+Employee.belongsToMany(Exam, { through: ExamAssignment, foreignKey: 'employeeId', otherKey: 'examId', as: 'assignedExams' });
+Exam.belongsToMany(Employee, { through: ExamAssignment, foreignKey: 'examId', otherKey: 'employeeId', as: 'assignedEmployees' });
+
+Employee.hasMany(ExamAssignment, { foreignKey: 'employeeId', as: 'examAssignments', onDelete: 'CASCADE' });
+ExamAssignment.belongsTo(Employee, { foreignKey: 'employeeId', as: 'employee' });
+
+Exam.hasMany(ExamAssignment, { foreignKey: 'examId', as: 'assignments', onDelete: 'CASCADE' });
+ExamAssignment.belongsTo(Exam, { foreignKey: 'examId', as: 'exam' });
+
+HR.hasMany(ExamAssignment, { foreignKey: 'assignedBy', as: 'assignmentsMade' });
+ExamAssignment.belongsTo(HR, { foreignKey: 'assignedBy', as: 'assignedByHr' });
+
 module.exports = {
   sequelize,
   HR,
@@ -36,5 +52,6 @@ module.exports = {
   Exam,
   Question,
   Submission,
-  Answer
+  Answer,
+  ExamAssignment
 };

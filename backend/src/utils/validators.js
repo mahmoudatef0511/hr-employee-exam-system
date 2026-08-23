@@ -61,6 +61,13 @@ function validateSubmission({ answers }) {
   return errors;
 }
 
+function validateAssignment({ employeeId, examId }) {
+  const errors = [];
+  if (!Number.isInteger(Number(employeeId))) errors.push('A valid employeeId is required.');
+  if (!Number.isInteger(Number(examId))) errors.push('A valid examId is required.');
+  return errors;
+}
+
 module.exports = {
   isNonEmptyString,
   isValidEmail,
@@ -69,5 +76,6 @@ module.exports = {
   validateLogin,
   validateExam,
   validateQuestion,
-  validateSubmission
+  validateSubmission,
+  validateAssignment
 };

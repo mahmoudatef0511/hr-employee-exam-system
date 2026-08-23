@@ -1,12 +1,40 @@
-const { Exam, Question } = require('../models');
+const { Exam, Question, ExamAssignment } = require('../models');
 const { success } = require('../utils/apiResponse');
 const AppError = require('../utils/AppError');
 const { validateExam, validateQuestion } = require('../utils/validators');
 
+// Employees may only ever touch exams that have been assigned to them.
+// Centralized here so every employee-facing route enforces it the same way,
+// regardless of what the request body/params say.
+async function assertEmployeeIsAssigned(employeeId, examId) {
+  const assignment = await ExamAssignment.findOne({
+    where: { employeeId, examId }
+  });
+  if (!assignment) {
+    throw new AppError('You do not have access to this exam.', 403);
+  }
+}
+
 // GET /api/exams  (available to any authenticated user)
+// HR sees every exam. Employees only see exams assigned to them.
 async function listExams(req, res, next) {
   try {
-    const exams = await Exam.findAll({ order: [['id', 'ASC']] });
+    let exams;
+    if (req.user.type === 'employee') {
+      exams = await Exam.findAll({
+        include: [
+          {
+            model: ExamAssignment,
+            as: 'assignments',
+            where: { employeeId: req.user.id },
+            attributes: []
+          }
+        ],
+        order: [['id', 'ASC']]
+      });
+    } else {
+      exams = await Exam.findAll({ order: [['id', 'ASC']] });
+    }
     return success(res, 200, exams);
   } catch (err) {
     next(err);
@@ -18,6 +46,11 @@ async function getExam(req, res, next) {
   try {
     const exam = await Exam.findByPk(req.params.id);
     if (!exam) throw new AppError('Exam not found.', 404);
+
+    if (req.user.type === 'employee') {
+      await assertEmployeeIsAssigned(req.user.id, exam.id);
+    }
+
     return success(res, 200, exam);
   } catch (err) {
     next(err);
@@ -31,6 +64,10 @@ async function getExamQuestions(req, res, next) {
   try {
     const exam = await Exam.findByPk(req.params.id);
     if (!exam) throw new AppError('Exam not found.', 404);
+
+    if (req.user.type === 'employee') {
+      await assertEmployeeIsAssigned(req.user.id, exam.id);
+    }
 
     const questions = await Question.findAll({
       where: { examId: req.params.id },
@@ -83,5 +120,6 @@ module.exports = {
   getExam,
   getExamQuestions,
   createExam,
-  addQuestion
+  addQuestion,
+  assertEmployeeIsAssigned
 };
